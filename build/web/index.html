@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner</title>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #video { width: 100%; max-width: 600px; height: auto; }
+        #message { color: green; font-size: 18px; margin-top: 20px; }
+        #error { color: red; font-size: 16px; margin-top: 10px; }
+        button { margin-top: 20px; padding: 10px 20px; font-size: 16px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>QR Code Scanner</h1>
+    <video id="video" autoplay></video>
+    <div id="message"></div>
+    <div id="error"></div>
+    <button id="stopButton">Stop Scanning</button>
+
+    <script>
+    const codeReader = new ZXing.BrowserQRCodeReader();
+    const videoElement = document.getElementById('video');
+    const messageElement = document.getElementById('message');
+    const errorElement = document.getElementById('error');
+    const stopButton = document.getElementById('stopButton');
+
+    let isScanning = true;
+
+    // Start QR Code scanning
+    codeReader
+        .decodeFromVideoDevice(null, videoElement, (result, err) => {
+            if (isScanning) {
+                if (result) {
+                    const qrData = result.text;
+
+                    // Display the received QR data
+                    messageElement.innerHTML = `<p>QR Code Data: ${qrData}</p>`;
+
+                    // Send QR data to the server
+                    fetch('RecordAttendance.jsp', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'qrData=' + encodeURIComponent(qrData)
+                    })
+                        .then(response => response.text())
+                        .then(data => {
+                            console.log('Server Response:', data);
+                            messageElement.innerHTML = `<p>${data}</p>`;
+                        })
+                        .catch(error => {
+                            console.error('Error while recording attendance:', error);
+                            errorElement.textContent = 'Error recording attendance.';
+                        });
+
+                    // Stop scanning after a successful scan
+                    isScanning = false;
+                    codeReader.reset();
+                } else if (err && !(err instanceof ZXing.NotFoundException)) {
+                    console.error('QR Code decoding error:', err);
+                    errorElement.textContent = 'Error decoding QR Code.';
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Camera error:', err);
+            errorElement.textContent = 'Error accessing camera. Please check permissions.';
+        });
+
+    // Stop scanning button
+    stopButton.addEventListener('click', () => {
+        isScanning = false;
+        codeReader.reset();
+        messageElement.textContent = 'Scanning stopped.';
+    });
+</script>
+
+</body>
+</html>
